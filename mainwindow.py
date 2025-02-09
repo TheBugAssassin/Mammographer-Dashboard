@@ -51,7 +51,7 @@ from PySide6.QtWidgets import (
     QApplication, QMainWindow, QPushButton, QLabel, QComboBox, QProgressDialog,
     QDoubleSpinBox, QProgressBar, QFileDialog, QGraphicsView, QGraphicsScene, QGraphicsPixmapItem
 )
-from PySide6.QtGui import QPixmap, QIcon
+from PySide6.QtGui import QPixmap, QIcon, QImage
 from PySide6.QtCore import Qt, QThread, Signal
 from ui_form import Ui_MainWindow  # Ensure form.ui is compiled to ui_form.py
 from PIL import Image
@@ -156,60 +156,41 @@ QProgressDialog::cancelButton:hover {
 }
 """
 
-# # Important:
-# # You need to run the following command to generate the ui_form.py file
-# #     pyside6-uic form.ui -o ui_form.py, or
-# #     pyside2-uic form.ui -o ui_form.py
-
 class DicomConverterThread(QThread):
     progress = Signal(int)
-    conversion_done = Signal(str)
+    conversion_done = Signal(np.ndarray)  # Emit the processed image array
 
-    def __init__(self, dcm_path, output_dir, slice_number):
+    def __init__(self, dcm_path, slice_number):
         super().__init__()
-        self.dcm_path = dcm_path  # Store the DICOM file path
-        self.output_dir = output_dir  # Store the output directory
-        self.slice_number = slice_number  # Store the slice number
-        self.converted_image_path = None  # Initialize the converted image path
+        self.dcm_path = dcm_path
+        self.slice_number = slice_number
+        self.processed_image = None  # Store the processed image
 
     def run(self):
         try:
-            ds = pydicom.dcmread(self.dcm_path)  # Read the DICOM file
-            img_array = ds.pixel_array  # Extract pixel array from DICOM
+            ds = pydicom.dcmread(self.dcm_path)
+            img_array = ds.pixel_array
 
-            # If the image array is 3D, slice it according to the requested slice number
             if img_array.ndim == 3:
                 if 0 <= self.slice_number < img_array.shape[0]:
                     img_array = img_array[int(self.slice_number)]
                 else:
-                    self.progress.emit(0)  # If invalid slice number, emit progress as 0
+                    self.progress.emit(0)
                     print("Invalid slice number")
                     return
 
-            # Normalize the image array
             img_array = ((img_array - img_array.min()) / (img_array.max() - img_array.min()) * 255).astype(np.uint8)
 
-            # Simulate progress during conversion
-            for i in range(101):  # 0 to 100
-                self.msleep(20)  # Adjust delay for smooth progress
+            for i in range(101):
+                self.msleep(20)
                 self.progress.emit(i)
 
-            # Output the image path where it will be saved
-            output_path = os.path.join(self.output_dir, "processed_slice.png")
-            plt.imsave(output_path, img_array, cmap='gray', format='png')  # Save image as PNG
-
-            # Resize the image to 512x512 pixels
-            img = Image.open(output_path)
-            img = img.resize((512, 512))  # Resize to 512x512
-            img.save(output_path)  # Save the resized image
-
-            # Emit the converted image path once the conversion is done
-            self.converted_image_path = output_path
-            self.conversion_done.emit(output_path)
+            self.processed_image = img_array  # Store processed image
+            self.conversion_done.emit(img_array)  # Emit the image array
 
         except Exception as e:
             print(f"Error: {e}")
-            self.progress.emit(0)  # In case of error, emit progress as 0
+            self.progress.emit(0)
 
 class MainWindow(QMainWindow):
     def __init__(self, parent=None):
@@ -223,7 +204,7 @@ class MainWindow(QMainWindow):
         self.setWindowIcon(QIcon(logo_path))
 
         self.dcm_path = None
-        self.converted_image_path = None  # Track the path of the converted image
+        self.processed_image = None  # Store processed image
 
         # Find UI elements
         self.buttonFile = self.findChild(QPushButton, "pushButtonFile")
@@ -244,12 +225,31 @@ class MainWindow(QMainWindow):
 
         self.progress_dialog = None  # Initially set to None
         self.progressBar = None  # Progress bar will be accessed through the dialog
+        self.disable_ui()
+
+    def disable_ui(self):
+        self.viewSelect.setEnabled(False)
+        self.sliceNumber.setEnabled(False)
+        self.loadButton.setEnabled(False)
+        self.extractButton.setEnabled(False)
+
+    def enable_ui(self):
+        self.viewSelect.setEnabled(True)
+        self.sliceNumber.setEnabled(True)
+        self.loadButton.setEnabled(True)
+        self.extractButton.setEnabled(True)
 
     def select_dcm(self):
         file_path, _ = QFileDialog.getOpenFileName(self, "Select DICOM File", "", "DICOM Files (*.dcm)")
         if file_path:
-            self.dcm_path = file_path
-            self.ui.label.setText(f"Selected: {os.path.basename(file_path)}")
+            try:
+                pydicom.dcmread(file_path)
+                self.dcm_path = file_path
+                self.ui.label.setText(f"Selected: {os.path.basename(file_path)}")
+                self.enable_ui()
+            except Exception:
+                self.ui.label.setText("Invalid DICOM file!")
+                self.disable_ui()
 
     def convert_dcm(self):
         if not self.dcm_path:
@@ -266,42 +266,35 @@ class MainWindow(QMainWindow):
         self.progress_dialog.setValue(0)  # Start at 0% progress
         self.progress_dialog.show()
 
-        # Start the conversion thread
-        self.thread = DicomConverterThread(self.dcm_path, output_dir, slice_number)
-        self.thread.progress.connect(self.update_progress)  # Connect to update progress
-        self.thread.conversion_done.connect(self.display_image)  # Connect to display image once done
+        self.thread = DicomConverterThread(self.dcm_path, slice_number)
+        self.thread.progress.connect(self.update_progress)
+        self.thread.conversion_done.connect(self.display_image)
         self.thread.start()
 
     def update_progress(self, value):
         if self.progress_dialog:
             self.progress_dialog.setValue(value)  # Update progress bar value
 
-    def display_image(self, image_path):
-        # Hide progress dialog once conversion is done
-        if self.progress_dialog:
-            self.progress_dialog.hide()
+    def display_image(self, img_array):
+        self.progress_dialog.hide()
+        self.processed_image = img_array  # Store processed image
 
-        self.converted_image_path = image_path
-        pixmap = QPixmap.fromImage(ImageQt(Image.open(image_path)))  # Use ImageQt to convert PIL Image to QPixmap
+        height, width = img_array.shape
+        q_image = QImage(img_array.data, width, height, width, QImage.Format_Grayscale8)
+        pixmap = QPixmap.fromImage(q_image)
+
         self.scene.clear()
-        item = QGraphicsPixmapItem(pixmap)
-        self.scene.addItem(item)
-        self.graphicsView.setScene(self.scene)
+        self.scene.addPixmap(pixmap)
 
     def save_image(self):
-        if self.converted_image_path:
-            # Ask the user where to save the converted image
-            save_path, _ = QFileDialog.getSaveFileName(
-                self, "Save Image", self.converted_image_path, "PNG Files (*.png)"
-            )
+        if self.processed_image is not None:
+            save_path, _ = QFileDialog.getSaveFileName(self, "Save Image", "", "PNG Files (*.png)")
             if save_path:
-                # Save the image to the user-selected path
-                img = Image.open(self.converted_image_path)
+                img = Image.fromarray(self.processed_image)
                 img.save(save_path)
                 print(f"Image saved to {save_path}")
         else:
             print("No image to save.")
-
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
