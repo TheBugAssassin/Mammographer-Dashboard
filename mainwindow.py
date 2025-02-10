@@ -243,17 +243,30 @@ class MainWindow(QMainWindow):
         file_path, _ = QFileDialog.getOpenFileName(self, "Select DICOM File", "", "DICOM Files (*.dcm)")
         if file_path:
             try:
-                pydicom.dcmread(file_path)
+                ds = pydicom.dcmread(file_path)
                 self.dcm_path = file_path
                 self.ui.label.setText(f"Selected: {os.path.basename(file_path)}")
+                if "NumberOfFrames" in ds:
+                    num_slices = ds.NumberOfFrames
+                    print(f"Total Slices: {num_slices}")
+                    self.sliceNumber.setMaximum(num_slices - 1)  # Ensure 0-based indexing
+                    self.sliceNumber.setValue(0)  # Reset to first slice
+                else:
+                    self.sliceNumber.setMaximum(0)  # Single slice case
+                    self.sliceNumber.setValue(0)
+                if "SliceThickness" in ds:
+                    slice_thickness = ds.SliceThickness
+                    print(f"Slice Thickness: {slice_thickness} mm")
+                else:
+                    print("Slice Thickness: N/A")
                 self.enable_ui()
             except Exception:
-                self.ui.label.setText("Invalid DICOM file!")
+                self.ui.label.setText("Invalid DICOM File!")
                 self.disable_ui()
 
     def convert_dcm(self):
         if not self.dcm_path:
-            print("No DICOM file selected.")
+            print("No DICOM File Selected")
             return
 
         slice_number = self.sliceNumber.value()
@@ -292,9 +305,9 @@ class MainWindow(QMainWindow):
             if save_path:
                 img = Image.fromarray(self.processed_image)
                 img.save(save_path)
-                print(f"Image saved to {save_path}")
+                print(f"Image Saved @ {save_path}")
         else:
-            print("No image to save.")
+            print("No Image")
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

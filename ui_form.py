@@ -87,7 +87,7 @@ class Ui_MainWindow(object):
         sizePolicy1.setHeightForWidth(self.doubleSpinBox.sizePolicy().hasHeightForWidth())
         self.doubleSpinBox.setSizePolicy(sizePolicy1)
         self.doubleSpinBox.setDecimals(0)
-        self.doubleSpinBox.setMaximum(71.000000000000000)
+        self.doubleSpinBox.setMaximum(100.000000000000000)
 
         self.formLayout_3.setWidget(0, QFormLayout.FieldRole, self.doubleSpinBox)
 
