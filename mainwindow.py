@@ -9,47 +9,13 @@
 # #     pyside6-uic form.ui -o ui_form.py, or
 # #     pyside2-uic form.ui -o ui_form.py
 
-# from ui_form import Ui_MainWindow
-
-# class MainWindow(QMainWindow):
-#     def __init__(self, parent=None):
-#         super().__init__(parent)
-#         self.ui = Ui_MainWindow()
-#         self.ui.setupUi(self)
-
-#         self.button = self.findChild(QPushButton, "pushButton_2")
-#         self.graphicsView = self.findChild(QGraphicsView, "graphicsView")
-
-#         # Create a graphics scene
-#         self.scene = QGraphicsScene()
-#         self.graphicsView.setScene(self.scene)
-
-#         self.button.clicked.connect(self.clicker)
-
-#     def clicker(self):
-#         file_name, _ = QFileDialog.getOpenFileName(self, "Load PNG", "", "PNG Files (*.png)")
-
-#         if file_name:
-#             pixmap = QPixmap(file_name)
-#             self.scene.clear()  # Clear previous image
-#             item = QGraphicsPixmapItem(pixmap)
-#             self.scene.addItem(item)
-#             self.graphicsView.fitInView(item.boundingRect(), Qt.KeepAspectRatio)
-
-# if __name__ == "__main__":
-#     app = QApplication(sys.argv)
-#     widget = MainWindow()
-#     widget.show()
-#     sys.exit(app.exec())
-
-
-#Wuzzzzzzzaaaaaappppppp
-
 import os
 import pydicom
 import numpy as np
 import matplotlib.pyplot as plt
 import sys
+from typing import AnyStr, BinaryIO, Dict, List, NamedTuple, Optional, Union
+from skimage.exposure import rescale_intensity
 from PySide6.QtWidgets import (
     QApplication, QMainWindow, QPushButton, QLabel, QComboBox, QProgressDialog,
     QDoubleSpinBox, QProgressBar, QFileDialog, QGraphicsView, QGraphicsScene, QGraphicsPixmapItem
@@ -295,12 +261,16 @@ class MainWindow(QMainWindow):
         self.progress_dialog.hide()
         self.processed_image = img_array  # Store processed image
 
-        height, width = img_array.shape
-        q_image = QImage(img_array.data, width, height, width, QImage.Format_Grayscale8)
-        pixmap = QPixmap.fromImage(q_image)
+        img = Image.fromarray(self.processed_image).resize((512, 512), Image.LANCZOS)
+        self.processed_image = np.array(img)  # Store resized image for later saving
+
+        height, width = self.processed_image.shape[:2]  # Ensure dimensions are correct
+        q_image = QImage(self.processed_image.data, width, height, width * self.processed_image.shape[2] if len(self.processed_image.shape) == 3 else width, QImage.Format_Grayscale8 if len(self.processed_image.shape) == 2 else QImage.Format_RGB888)
+        pixmap = QPixmap.fromImage(q_image).scaled(512, 512, Qt.KeepAspectRatio, Qt.SmoothTransformation)
 
         self.scene.clear()
         self.scene.addPixmap(pixmap)
+        self.graphicsView.setSceneRect(0, 0, 512, 512)
 
     def save_image(self):
         if self.processed_image is not None:
@@ -311,6 +281,30 @@ class MainWindow(QMainWindow):
                 print(f"Image Saved @ {save_path}")
         else:
             print("No Image")
+
+def dcmread_image(
+    fp: Union[str, "os.PathLike[AnyStr]", BinaryIO],
+    view: str,
+    index: Optional[np.uint] = None,
+) -> np.ndarray:
+    """Read pixel array from DBT DICOM file"""
+    ds = dicom.dcmread(fp)
+    ds.decompress(handler_name="pylibjpeg")
+    pixel_array = ds.pixel_array
+    view_laterality = view[0].upper()
+    image_laterality = _get_image_laterality(pixel_array[index or 0])
+    if index is not None:
+        pixel_array = pixel_array[index]
+    if not image_laterality == view_laterality:
+        pixel_array = np.flip(pixel_array, axis=(-1, -2))
+    window_center = _get_window_center(ds)
+    window_width = _get_window_width(ds)
+    low = (2 * window_center - window_width) / 2
+    high = (2 * window_center + window_width) / 2
+    pixel_array = rescale_intensity(
+        pixel_array, in_range=(low, high), out_range="dtype"
+    )
+    return pixel_array
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
