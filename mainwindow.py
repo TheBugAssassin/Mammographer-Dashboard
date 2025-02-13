@@ -14,10 +14,16 @@ import pydicom
 import numpy as np
 import matplotlib.pyplot as plt
 import sys
+import torch
+import torch.nn as nn
+import torchvision.transforms.v2 as transforms
+import torchvision.models as models
+import torchvision.transforms.functional as F
+from torchvision.io import read_image
 from typing import AnyStr, BinaryIO, Dict, List, NamedTuple, Optional, Union
 from skimage.exposure import rescale_intensity
 from PySide6.QtWidgets import (
-    QApplication, QMainWindow, QPushButton, QLabel, QComboBox, QProgressDialog,
+    QApplication, QMainWindow, QPushButton, QLabel, QComboBox, QProgressDialog, QMessageBox,
     QDoubleSpinBox, QProgressBar, QFileDialog, QGraphicsView, QGraphicsScene, QGraphicsPixmapItem
 )
 from PySide6.QtGui import QPixmap, QIcon, QImage
@@ -25,6 +31,9 @@ from PySide6.QtCore import Qt, QThread, Signal
 from ui_form import Ui_MainWindow  # Ensure form.ui is compiled to ui_form.py
 from PIL import Image
 from PIL.ImageQt import ImageQt
+
+CLASS_MAPPING = {'Normal': 0, 'Actionable': 1, 'Benign': 2, 'Cancer': 3}
+REVERSE_CLASS_MAPPING = {v: k for k, v in CLASS_MAPPING.items()}
 
 stylesheet = """
 QMainWindow {
@@ -170,6 +179,7 @@ class MainWindow(QMainWindow):
 
         self.dcm_path = None
         self.processed_image = None  # Store processed image
+        self.model = load_model("resnet50_trained_iteration_4_100_epochs.pth")
 
         # Find UI elements
         self.buttonFile = self.findChild(QPushButton, "pushButtonFile")
@@ -177,6 +187,7 @@ class MainWindow(QMainWindow):
         self.viewSelect = self.findChild(QComboBox, "comboBox")
         self.sliceNumber = self.findChild(QDoubleSpinBox, "doubleSpinBox")
         self.loadButton = self.findChild(QPushButton, "pushButton")
+        self.classifyButton = self.findChild(QPushButton, "classifyButton")
         self.extractButton = self.findChild(QPushButton, "extractButton")
 
         # Setup scene for displaying images
@@ -186,6 +197,7 @@ class MainWindow(QMainWindow):
         # Connect buttons
         self.buttonFile.clicked.connect(self.select_dcm)
         self.loadButton.clicked.connect(self.convert_dcm)
+        self.classifyButton.clicked.connect(self.classify_image)
         self.extractButton.clicked.connect(self.save_image)
 
         self.progress_dialog = None  # Initially set to None
@@ -279,6 +291,38 @@ class MainWindow(QMainWindow):
         else:
             print("No Image")
 
+    def classify_image(self):
+        if self.processed_image is None:
+            QMessageBox.warning(self, "Error", "No image loaded for classification.")
+            return
+
+        try:
+            # Convert processed NumPy array to PIL image
+            img = Image.fromarray(self.processed_image)
+
+            # Convert to grayscale (1-channel)
+            img = img.convert("L")
+
+            # Apply transformations
+            img_tensor = image_transforms(torch.tensor(np.array(img)).unsqueeze(0))
+
+            # Add batch dimension
+            img_tensor = img_tensor.unsqueeze(0)
+
+            # Run inference
+            with torch.no_grad():
+                outputs = self.model(img_tensor)
+                _, predicted_class = torch.max(outputs, 1)
+
+            # Map class index to label
+            class_label = REVERSE_CLASS_MAPPING[predicted_class.item()]
+
+            # Show result in a dialog box
+            QMessageBox.information(self, "Classification Result", f"{class_label}")
+
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Classification Failed: {str(e)}")
+
 def _get_image_laterality(pixel_array: np.ndarray) -> str:
     left_edge = np.sum(pixel_array[:, 0])  # sum of left edge pixels
     right_edge = np.sum(pixel_array[:, -1])  # sum of right edge pixels
@@ -315,6 +359,24 @@ def dcmread_image(
         pixel_array, in_range=(low, high), out_range="dtype"
     )
     return pixel_array
+
+# Load the trained ResNet-50 model
+def load_model(model_path, num_classes=4):
+    model = models.resnet50(weights=None)  # No pre-trained weights
+    model.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3, bias=False)  # Adjust for 1-channel input
+    num_ftrs = model.fc.in_features
+    model.fc = nn.Linear(num_ftrs, num_classes)  # Modify output layer for classification
+
+    model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')))
+    model.eval()
+    return model
+
+# Define the same image transformations as used during training
+image_transforms = transforms.Compose([
+    transforms.ToDtype(torch.float32, scale=True),
+    transforms.Lambda(lambda img: F.crop(img, top=50, left=0, height=400, width=400)),
+    transforms.Resize((224, 224)),  # ResNet-50 expects 224x224 input
+])
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

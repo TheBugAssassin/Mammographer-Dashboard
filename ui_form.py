@@ -17,9 +17,9 @@ from PySide6.QtGui import (QAction, QBrush, QColor, QConicalGradient,
     QPainter, QPalette, QPixmap, QRadialGradient,
     QTransform)
 from PySide6.QtWidgets import (QApplication, QComboBox, QDoubleSpinBox, QFormLayout,
-    QFrame, QGraphicsView, QLabel, QMainWindow,
-    QMenu, QMenuBar, QPushButton, QSizePolicy,
-    QVBoxLayout, QWidget)
+    QFrame, QGraphicsView, QHBoxLayout, QLabel,
+    QMainWindow, QMenu, QMenuBar, QPushButton,
+    QSizePolicy, QVBoxLayout, QWidget)
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
@@ -39,10 +39,20 @@ class Ui_MainWindow(object):
 
         self.verticalLayout_3.addWidget(self.graphicsView)
 
+        self.horizontalLayout_3 = QHBoxLayout()
+        self.horizontalLayout_3.setObjectName(u"horizontalLayout_3")
+        self.classifyButton = QPushButton(self.verticalLayoutWidget_2)
+        self.classifyButton.setObjectName(u"classifyButton")
+
+        self.horizontalLayout_3.addWidget(self.classifyButton)
+
         self.extractButton = QPushButton(self.verticalLayoutWidget_2)
         self.extractButton.setObjectName(u"extractButton")
 
-        self.verticalLayout_3.addWidget(self.extractButton)
+        self.horizontalLayout_3.addWidget(self.extractButton)
+
+
+        self.verticalLayout_3.addLayout(self.horizontalLayout_3)
 
         self.verticalLayoutWidget_3 = QWidget(self.centralwidget)
         self.verticalLayoutWidget_3.setObjectName(u"verticalLayoutWidget_3")
@@ -132,6 +142,7 @@ class Ui_MainWindow(object):
 
     def retranslateUi(self, MainWindow):
         MainWindow.setWindowTitle(QCoreApplication.translate("MainWindow", u"MainWindow", None))
+        self.classifyButton.setText(QCoreApplication.translate("MainWindow", u"Classify Slice", None))
         self.extractButton.setText(QCoreApplication.translate("MainWindow", u"Extract Slice", None))
         self.pushButtonFile.setText(QCoreApplication.translate("MainWindow", u"Select DCM", None))
         self.label.setText(QCoreApplication.translate("MainWindow", u"File Name:", None))
@@ -140,7 +151,7 @@ class Ui_MainWindow(object):
         self.comboBox.setItemText(2, QCoreApplication.translate("MainWindow", u"LMLO", None))
         self.comboBox.setItemText(3, QCoreApplication.translate("MainWindow", u"RMLO", None))
 
-        self.comboBox.setCurrentText(QCoreApplication.translate("MainWindow", u"LCC", None))
+        self.comboBox.setCurrentText("")
         self.comboBox.setPlaceholderText(QCoreApplication.translate("MainWindow", u"Select View", None))
         self.pushButton.setText(QCoreApplication.translate("MainWindow", u"Load Slice", None))
         self.menuMain.setTitle(QCoreApplication.translate("MainWindow", u"Main", None))

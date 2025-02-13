@@ -28,11 +28,22 @@
       <widget class="QGraphicsView" name="graphicsView"/>
      </item>
      <item>
-      <widget class="QPushButton" name="extractButton">
-       <property name="text">
-        <string>Extract Slice</string>
-       </property>
-      </widget>
+      <layout class="QHBoxLayout" name="horizontalLayout_3">
+       <item>
+        <widget class="QPushButton" name="classifyButton">
+         <property name="text">
+          <string>Classify Slice</string>
+         </property>
+        </widget>
+       </item>
+       <item>
+        <widget class="QPushButton" name="extractButton">
+         <property name="text">
+          <string>Extract Slice</string>
+         </property>
+        </widget>
+       </item>
+      </layout>
      </item>
     </layout>
    </widget>
@@ -80,7 +91,7 @@
           </sizepolicy>
          </property>
          <property name="currentText">
-          <string>LCC</string>
+          <string/>
          </property>
          <property name="placeholderText">
           <string>Select View</string>
