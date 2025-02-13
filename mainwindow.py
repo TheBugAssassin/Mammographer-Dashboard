@@ -129,25 +129,21 @@ class DicomConverterThread(QThread):
     progress = Signal(int)
     conversion_done = Signal(np.ndarray)  # Emit the processed image array
 
-    def __init__(self, dcm_path, slice_number):
+    def __init__(self, dcm_path, slice_number, view_laterality):
         super().__init__()
         self.dcm_path = dcm_path
         self.slice_number = slice_number
+        self.view_laterality = view_laterality
         self.processed_image = None  # Store the processed image
 
     def run(self):
         try:
-            ds = pydicom.dcmread(self.dcm_path)
-            img_array = ds.pixel_array
+            # ds = pydicom.dcmread(self.dcm_path)
+            # img_array = ds.pixel_array
+            # img_array = img_array[int(self.slice_number)]
+            # img_array = ((img_array - img_array.min()) / (img_array.max() - img_array.min()) * 255).astype(np.uint8)
 
-            if img_array.ndim == 3:
-                if 0 <= self.slice_number < img_array.shape[0]:
-                    img_array = img_array[int(self.slice_number)]
-                else:
-                    self.progress.emit(0)
-                    print("Invalid slice number")
-                    return
-
+            img_array = dcmread_image(self.dcm_path, self.view_laterality, int(self.slice_number))
             img_array = ((img_array - img_array.min()) / (img_array.max() - img_array.min()) * 255).astype(np.uint8)
 
             for i in range(101):
@@ -239,6 +235,7 @@ class MainWindow(QMainWindow):
             return
 
         slice_number = self.sliceNumber.value()
+        view_laterality = self.viewSelect.currentText()
         output_dir = os.path.dirname(self.dcm_path)
 
         # Create and show progress dialog
@@ -248,7 +245,7 @@ class MainWindow(QMainWindow):
         self.progress_dialog.setValue(0)  # Start at 0% progress
         self.progress_dialog.show()
 
-        self.thread = DicomConverterThread(self.dcm_path, slice_number)
+        self.thread = DicomConverterThread(self.dcm_path, slice_number, view_laterality)
         self.thread.progress.connect(self.update_progress)
         self.thread.conversion_done.connect(self.display_image)
         self.thread.start()
@@ -282,13 +279,26 @@ class MainWindow(QMainWindow):
         else:
             print("No Image")
 
+def _get_image_laterality(pixel_array: np.ndarray) -> str:
+    left_edge = np.sum(pixel_array[:, 0])  # sum of left edge pixels
+    right_edge = np.sum(pixel_array[:, -1])  # sum of right edge pixels
+    return "R" if left_edge < right_edge else "L"
+
+
+def _get_window_center(ds: pydicom.dataset.FileDataset) -> np.float32:
+    return np.float32(ds[0x5200, 0x9229][0][0x0028, 0x9132][0][0x0028, 0x1050].value)
+
+
+def _get_window_width(ds: pydicom.dataset.FileDataset) -> np.float32:
+    return np.float32(ds[0x5200, 0x9229][0][0x0028, 0x9132][0][0x0028, 0x1051].value)
+
 def dcmread_image(
     fp: Union[str, "os.PathLike[AnyStr]", BinaryIO],
     view: str,
     index: Optional[np.uint] = None,
 ) -> np.ndarray:
     """Read pixel array from DBT DICOM file"""
-    ds = dicom.dcmread(fp)
+    ds = pydicom.dcmread(fp)
     ds.decompress(handler_name="pylibjpeg")
     pixel_array = ds.pixel_array
     view_laterality = view[0].upper()
