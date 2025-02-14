@@ -35,6 +35,11 @@ from PIL.ImageQt import ImageQt
 CLASS_MAPPING = {'Normal': 0, 'Actionable': 1, 'Benign': 2, 'Cancer': 3}
 REVERSE_CLASS_MAPPING = {v: k for k, v in CLASS_MAPPING.items()}
 
+image_transforms = transforms.Compose([
+    transforms.ToDtype(torch.float32, scale=True),
+    transforms.Lambda(lambda img: F.crop(img, top=50, left=0, height=400, width=400)),
+])
+
 stylesheet = """
 QMainWindow {
     background-color: #f9f9f9;  /* Light background color */
@@ -293,31 +298,21 @@ class MainWindow(QMainWindow):
 
     def classify_image(self):
         if self.processed_image is None:
-            QMessageBox.warning(self, "Error", "No image loaded for classification.")
+            QMessageBox.warning(self, "Error", "No Image Loaded")
             return
 
         try:
             # Convert processed NumPy array to PIL image
             img = Image.fromarray(self.processed_image)
-
-            # Convert to grayscale (1-channel)
             img = img.convert("L")
-
-            # Apply transformations
             img_tensor = image_transforms(torch.tensor(np.array(img)).unsqueeze(0))
-
-            # Add batch dimension
             img_tensor = img_tensor.unsqueeze(0)
 
-            # Run inference
             with torch.no_grad():
                 outputs = self.model(img_tensor)
                 _, predicted_class = torch.max(outputs, 1)
 
-            # Map class index to label
             class_label = REVERSE_CLASS_MAPPING[predicted_class.item()]
-
-            # Show result in a dialog box
             QMessageBox.information(self, "Classification Result", f"{class_label}")
 
         except Exception as e:
@@ -362,21 +357,14 @@ def dcmread_image(
 
 # Load the trained ResNet-50 model
 def load_model(model_path, num_classes=4):
-    model = models.resnet50(weights=None)  # No pre-trained weights
-    model.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3, bias=False)  # Adjust for 1-channel input
+    model = models.resnet50(weights=None)
+    model.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3, bias=False)
     num_ftrs = model.fc.in_features
-    model.fc = nn.Linear(num_ftrs, num_classes)  # Modify output layer for classification
+    model.fc = nn.Linear(num_ftrs, num_classes)
 
     model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')))
     model.eval()
     return model
-
-# Define the same image transformations as used during training
-image_transforms = transforms.Compose([
-    transforms.ToDtype(torch.float32, scale=True),
-    transforms.Lambda(lambda img: F.crop(img, top=50, left=0, height=400, width=400)),
-    transforms.Resize((224, 224)),  # ResNet-50 expects 224x224 input
-])
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
