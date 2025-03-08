@@ -306,17 +306,10 @@ class MainWindow(QMainWindow):
         self.graphicsView.setSceneRect(0, 0, 512, 512)
 
     def display_png(self, png_path):
-        img = Image.open(png_path)
-        img_array = np.array(img)
-        if img_array.shape[2] == 4:
-            img_array = img_array[:, :, :3]
-        img_array = img_array.astype(np.uint8)
-        height, width = img_array.shape[:2]
-        q_image = QImage(img_array.data, width, height, width * 3, QImage.Format_RGB888)
-        pixmap = QPixmap.fromImage(q_image).scaled(512, 512, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        pixmap = QPixmap(png_path).scaled(512, 512, Qt.KeepAspectRatio, Qt.SmoothTransformation)
         self.scene.clear()
         self.scene.addPixmap(pixmap)
-        self.graphicsView.setSceneRect(0, 0, self.graphicsView.width(), self.graphicsView.height())
+        self.graphicsView.setSceneRect(0, 0, 512, 512)
 
     def save_image(self):
         if self.processed_image is not None:
@@ -390,7 +383,7 @@ class MainWindow(QMainWindow):
         image = Image.open(buf)
         plt.close(fig)  # Close the figure to release resources
 
-        return image # Return the image
+        return image
 
     def test(self,model, image, device):
         """Run model on test set and evaluate mAP."""
@@ -414,7 +407,7 @@ class MainWindow(QMainWindow):
 
     def bounding_box(self):
         num_classes = len(CLASS_MAPPING)
-        model_path = "faster_rcnn_det_test_101.pth"  # Update with actual path
+        model_path = "faster_rcnn_det_test_101.pth"
 
         device = 'cpu'
         if torch.cuda.is_available():
@@ -438,9 +431,7 @@ class MainWindow(QMainWindow):
 
         # Normalize the image to [0, 1] (already done by ToTensor but ensure it's done)
         image_tensor = image_tensor.float() / image_tensor.max()
-
         #image = read_image(global_image)
-
         # image = global_image.type(torch.float32)
         # image = image / image.max()
 
