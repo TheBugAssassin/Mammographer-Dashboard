@@ -13,13 +13,21 @@ import os
 import pydicom
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.patches as patches
 import sys
 import torch
 import torch.nn as nn
+import torch.optim as optim
+import torchvision
 import torchvision.transforms.v2 as transforms
+import torchvision.transforms as T
 import torchvision.models as models
 import torchvision.transforms.functional as F
+from torch.utils.data import Dataset, DataLoader
+from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
+from torchvision.models.detection.faster_rcnn import FasterRCNN_ResNet50_FPN_Weights
 from torchvision.io import read_image
+from torchvision.ops import box_iou
 from typing import AnyStr, BinaryIO, Dict, List, NamedTuple, Optional, Union
 from skimage.exposure import rescale_intensity
 from PySide6.QtWidgets import (
@@ -31,6 +39,8 @@ from PySide6.QtCore import Qt, QThread, Signal
 from ui_form import Ui_MainWindow  # Ensure form.ui is compiled to ui_form.py
 from PIL import Image
 from PIL.ImageQt import ImageQt
+from io import BytesIO
+from datetime import datetime
 
 CLASS_MAPPING = {'Normal': 0, 'Actionable': 1, 'Benign': 2, 'Cancer': 3}
 REVERSE_CLASS_MAPPING = {v: k for k, v in CLASS_MAPPING.items()}
@@ -139,6 +149,10 @@ QProgressDialog::cancelButton:hover {
 }
 """
 
+global_image = "NULL"
+global_image_view = "NULL"
+global_image_path = "NULL"
+
 class DicomConverterThread(QThread):
     progress = Signal(int)
     conversion_done = Signal(np.ndarray)  # Emit the processed image array
@@ -177,14 +191,15 @@ class MainWindow(QMainWindow):
 
         self.ui = Ui_MainWindow()
         self.ui.setupUi(self)
-        self.setWindowTitle("Mammographer Viewer")
+        self.setWindowTitle("MammoScan")
 
         logo_path = os.path.join(os.path.dirname(__file__), 'logo2.png')  # Get the path to logo.png
         self.setWindowIcon(QIcon(logo_path))
 
         self.dcm_path = None
         self.processed_image = None  # Store processed image
-        self.model = load_model("resnet50_trained_iteration_4_100_epochs.pth")
+        self.model = load_model_resnet("resnet50_trained_iteration_4_100_epochs.pth")
+        self.classification = 'null'
 
         # Find UI elements
         self.buttonFile = self.findChild(QPushButton, "pushButtonFile")
@@ -227,6 +242,8 @@ class MainWindow(QMainWindow):
             try:
                 ds = pydicom.dcmread(file_path)
                 self.dcm_path = file_path
+                global global_image_path
+                global_image_path = file_path
                 self.ui.label.setText(f"Selected: {os.path.basename(file_path)}")
                 if "NumberOfFrames" in ds:
                     num_slices = ds.NumberOfFrames
@@ -276,6 +293,8 @@ class MainWindow(QMainWindow):
         self.processed_image = img_array  # Store processed image
 
         img = Image.fromarray(self.processed_image).resize((512, 512), Image.LANCZOS)
+        global global_image
+        global_image = img
         self.processed_image = np.array(img)  # Store resized image for later saving
 
         height, width = self.processed_image.shape[:2]  # Ensure dimensions are correct
@@ -285,6 +304,19 @@ class MainWindow(QMainWindow):
         self.scene.clear()
         self.scene.addPixmap(pixmap)
         self.graphicsView.setSceneRect(0, 0, 512, 512)
+
+    def display_png(self, png_path):
+        img = Image.open(png_path)
+        img_array = np.array(img)
+        if img_array.shape[2] == 4:
+            img_array = img_array[:, :, :3]
+        img_array = img_array.astype(np.uint8)
+        height, width = img_array.shape[:2]
+        q_image = QImage(img_array.data, width, height, width * 3, QImage.Format_RGB888)
+        pixmap = QPixmap.fromImage(q_image).scaled(512, 512, Qt.KeepAspectRatio, Qt.SmoothTransformation)
+        self.scene.clear()
+        self.scene.addPixmap(pixmap)
+        self.graphicsView.setSceneRect(0, 0, self.graphicsView.width(), self.graphicsView.height())
 
     def save_image(self):
         if self.processed_image is not None:
@@ -302,8 +334,9 @@ class MainWindow(QMainWindow):
             return
 
         try:
-            # Convert processed NumPy array to PIL image
             img = Image.fromarray(self.processed_image)
+            global global_image
+            global_image = img
             img = img.convert("L")
             img_tensor = image_transforms(torch.tensor(np.array(img)).unsqueeze(0))
             img_tensor = img_tensor.unsqueeze(0)
@@ -314,19 +347,127 @@ class MainWindow(QMainWindow):
 
             class_label = REVERSE_CLASS_MAPPING[predicted_class.item()]
             QMessageBox.information(self, "Classification Result", f"{class_label}")
+            self.bounding_box()
 
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Classification Failed: {str(e)}")
+
+    def get_model(self,num_classes):
+        # Use the newer weights parameter instead of pretrained
+        weights = FasterRCNN_ResNet50_FPN_Weights.DEFAULT
+        model = torchvision.models.detection.fasterrcnn_resnet50_fpn(weights=weights)
+        #model.load_state_dict(torch.load("fasterrcnn_resnet50_fpn_coco-258fb6c6.pth"))
+
+        in_features = model.roi_heads.box_predictor.cls_score.in_features
+        model.roi_heads.box_predictor = FastRCNNPredictor(in_features, num_classes)
+        model.roi_heads.nms_thresh = 0.3
+
+        return model
+
+    def visualize_boxes(self, image, pred_boxes, pred_labels, class_mapping):
+        """Visualizes predicted and ground truth boxes with labels on the image."""
+        image = T.ToPILImage()(image.cpu())
+        fig, ax = plt.subplots(1)
+        ax.imshow(image)
+        ax.set_axis_off()
+
+        pred_color = 'red'  # Predicted boxes
+        gt_color = 'yellow'  # Ground truth boxes
+
+        # --- Plot Predicted Boxes ---
+        for box, label in zip(pred_boxes, pred_labels):
+            x1, y1, x2, y2 = box.cpu().numpy()
+            label_name = class_mapping.get(label.item(), str(label.item()))
+            rect = patches.Rectangle((x1, y1), x2 - x1, y2 - y1, linewidth=2, edgecolor=pred_color, facecolor='none')
+            ax.add_patch(rect)
+            ax.text(x1, y1 - 5, f"Pred: {label_name}", color=pred_color, fontsize=8, bbox=dict(facecolor='white', alpha=0.6))
+
+        # Save the plot to a BytesIO object with no background
+        buf = BytesIO()
+        plt.savefig(buf, format='png', facecolor='none', edgecolor='none', bbox_inches='tight', pad_inches=0)
+        buf.seek(0)
+        # Create a PIL Image from the BytesIO object
+        image = Image.open(buf)
+        plt.close(fig)  # Close the figure to release resources
+
+        return image # Return the image
+
+    def test(self,model, image, device):
+        """Run model on test set and evaluate mAP."""
+        print('Evaluating ...')
+        model.eval()
+        all_iou = []
+
+        with torch.no_grad():
+                images = [image.to(device)]
+
+                # Get predictions (no need for loss)
+                predictions = model(images)  # Returns list of dicts with 'boxes', 'labels', 'scores'
+
+                for img, pred in zip(images, predictions):
+
+                    image_with_boxes = self.visualize_boxes(
+                        img.cpu(), pred['boxes'], pred['labels'],
+                        REVERSE_CLASS_MAPPING
+                    )
+                    return image_with_boxes
+
+    def bounding_box(self):
+        num_classes = len(CLASS_MAPPING)
+        model_path = "faster_rcnn_det_test_101.pth"  # Update with actual path
+
+        device = 'cpu'
+        if torch.cuda.is_available():
+            device = 'cuda'
+        print('\t\tusing device ', device)
+
+        model = self.get_model(num_classes)
+        #device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+        device = torch.device('cpu')
+        model.to(device)
+
+        model.load_state_dict(torch.load(model_path, map_location=device))
+
+        if isinstance(global_image, Image.Image):
+            img = global_image
+        else:
+            img = Image.open(global_image)  # Adjust if global_image is a path to a file
+
+        transform = transforms.ToTensor()
+        image_tensor = transform(img)  # Add batch dimension
+
+        # Normalize the image to [0, 1] (already done by ToTensor but ensure it's done)
+        image_tensor = image_tensor.float() / image_tensor.max()
+
+        #image = read_image(global_image)
+
+        # image = global_image.type(torch.float32)
+        # image = image / image.max()
+
+        # Begin the testing of the model with testing dataset and specific neural network (.pth file)
+        image_with_boxes = self.test(
+            model=model,
+            image=image_tensor,
+            device=device
+        )
+
+        #self.display_image(image_with_boxes)
+        #image_with_boxes_array = np.array(image_with_boxes)
+
+        save_path = "mamogram.png"  # Specify your save path
+        image_with_boxes.save(save_path, 'PNG')
+
+        # Display the saved image in the front-end
+        self.display_png(save_path)
+        #self.display_image(image_with_boxes)
 
 def _get_image_laterality(pixel_array: np.ndarray) -> str:
     left_edge = np.sum(pixel_array[:, 0])  # sum of left edge pixels
     right_edge = np.sum(pixel_array[:, -1])  # sum of right edge pixels
     return "R" if left_edge < right_edge else "L"
 
-
 def _get_window_center(ds: pydicom.dataset.FileDataset) -> np.float32:
     return np.float32(ds[0x5200, 0x9229][0][0x0028, 0x9132][0][0x0028, 0x1050].value)
-
 
 def _get_window_width(ds: pydicom.dataset.FileDataset) -> np.float32:
     return np.float32(ds[0x5200, 0x9229][0][0x0028, 0x9132][0][0x0028, 0x1051].value)
@@ -342,6 +483,8 @@ def dcmread_image(
     pixel_array = ds.pixel_array
     view_laterality = view[0].upper()
     image_laterality = _get_image_laterality(pixel_array[index or 0])
+    global global_image_view
+    global_image_view = image_laterality
     if index is not None:
         pixel_array = pixel_array[index]
     if not image_laterality == view_laterality:
@@ -355,8 +498,7 @@ def dcmread_image(
     )
     return pixel_array
 
-# Load the trained ResNet-50 model
-def load_model(model_path, num_classes=4):
+def load_model_resnet(model_path, num_classes=4):
     model = models.resnet50(weights=None)
     model.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3, bias=False)
     num_ftrs = model.fc.in_features
@@ -365,6 +507,15 @@ def load_model(model_path, num_classes=4):
     model.load_state_dict(torch.load(model_path, map_location=torch.device('cpu')))
     model.eval()
     return model
+
+
+def scale_bbox(bbox, original_width, original_height, target_width=512, target_height=512):
+    x, y, width, height = bbox
+    x = x * target_width / original_width
+    y = y * target_height / original_height
+    width = width * target_width / original_width
+    height = height * target_height / original_height
+    return [x, y, width, height]
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)

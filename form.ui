@@ -174,18 +174,6 @@
      <height>21</height>
     </rect>
    </property>
-   <widget class="QMenu" name="menuMain">
-    <property name="title">
-     <string>Main</string>
-    </property>
-   </widget>
-   <widget class="QMenu" name="menuNext">
-    <property name="title">
-     <string>Next</string>
-    </property>
-   </widget>
-   <addaction name="menuMain"/>
-   <addaction name="menuNext"/>
   </widget>
  </widget>
  <resources/>

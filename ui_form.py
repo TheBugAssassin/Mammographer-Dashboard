@@ -11,15 +11,14 @@
 from PySide6.QtCore import (QCoreApplication, QDate, QDateTime, QLocale,
     QMetaObject, QObject, QPoint, QRect,
     QSize, QTime, QUrl, Qt)
-from PySide6.QtGui import (QAction, QBrush, QColor, QConicalGradient,
-    QCursor, QFont, QFontDatabase, QGradient,
-    QIcon, QImage, QKeySequence, QLinearGradient,
-    QPainter, QPalette, QPixmap, QRadialGradient,
-    QTransform)
+from PySide6.QtGui import (QBrush, QColor, QConicalGradient, QCursor,
+    QFont, QFontDatabase, QGradient, QIcon,
+    QImage, QKeySequence, QLinearGradient, QPainter,
+    QPalette, QPixmap, QRadialGradient, QTransform)
 from PySide6.QtWidgets import (QApplication, QComboBox, QDoubleSpinBox, QFormLayout,
     QFrame, QGraphicsView, QHBoxLayout, QLabel,
-    QMainWindow, QMenu, QMenuBar, QPushButton,
-    QSizePolicy, QVBoxLayout, QWidget)
+    QMainWindow, QMenuBar, QPushButton, QSizePolicy,
+    QVBoxLayout, QWidget)
 
 class Ui_MainWindow(object):
     def setupUi(self, MainWindow):
@@ -126,14 +125,7 @@ class Ui_MainWindow(object):
         self.menuBar = QMenuBar(MainWindow)
         self.menuBar.setObjectName(u"menuBar")
         self.menuBar.setGeometry(QRect(0, 0, 800, 21))
-        self.menuMain = QMenu(self.menuBar)
-        self.menuMain.setObjectName(u"menuMain")
-        self.menuNext = QMenu(self.menuBar)
-        self.menuNext.setObjectName(u"menuNext")
         MainWindow.setMenuBar(self.menuBar)
-
-        self.menuBar.addAction(self.menuMain.menuAction())
-        self.menuBar.addAction(self.menuNext.menuAction())
 
         self.retranslateUi(MainWindow)
 
@@ -154,7 +146,5 @@ class Ui_MainWindow(object):
         self.comboBox.setCurrentText("")
         self.comboBox.setPlaceholderText(QCoreApplication.translate("MainWindow", u"Select View", None))
         self.pushButton.setText(QCoreApplication.translate("MainWindow", u"Load Slice", None))
-        self.menuMain.setTitle(QCoreApplication.translate("MainWindow", u"Main", None))
-        self.menuNext.setTitle(QCoreApplication.translate("MainWindow", u"Next", None))
     # retranslateUi
 
