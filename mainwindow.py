@@ -52,100 +52,174 @@ image_transforms = transforms.Compose([
 
 stylesheet = """
 QMainWindow {
-    background-color: #f9f9f9;  /* Light background color */
+background-color: #38393b; /* Light background color */
 }
 
 QPushButton {
-    background-color: #ff80bf;  /* Light pink */
-    color: white;
-    font-size: 14px;
-    border: 2px solid #ff66b3;  /* Border with darker pink */
-    border-radius: 5px;
-    padding: 10px 15px;
+background-color: #d9558e; /* Light pink */
+color: white;
+font-size: 14px;
+border: 1px solid #ff66b3; /* Border with darker pink */
+border-radius: 5px;
+padding: 10px 15px;
 }
 
 QPushButton:hover {
-    background-color: #ff66b3;  /* Darker pink on hover */
-    border-color: #ff4d94;  /* Darker border color */
+background-color: #ff66b3; /* Darker pink on hover */
+border-color: #ff4d94; /* Darker border color */
 }
 
 QPushButton:pressed {
-    background-color: #ff4d94;  /* Darker pink when pressed */
-    border-color: #ff3385;
+background-color: #ff4d94; /* Darker pink when pressed */
+border-color: #ff3385;
 }
 
 QLabel {
-    font-size: 16px;
-    color: #333333;  /* Dark gray for text */
-    font-weight: bold;
+font-size: 16px;
+color: #ffffff; /* Dark gray for text */
+font-weight: bold;
 }
 
 QComboBox {
-    background-color: #ffffff;  /* White background for combobox */
-    border: 1px solid #ff80bf;  /* Light pink border */
-    padding: 5px;
-    font-size: 14px;
+background-color: #d9558e; /* White background for combobox */
+border: 1px solid #d9558e; /* Light pink border */
+padding: 5px;
+font-size: 14px;
+color: white;
 }
 
 QComboBox:hover {
-    border-color: #ff66b3;  /* Darker pink border on hover */
+border-color: #ff66b3; /* Darker pink border on hover */
 }
 
 QComboBox::drop-down {
-    border: none;
+border: none;
+background-color: #d9558e;
+color: #d9558e;
+}
+
+QComboBox QAbstractItemView {
+color: white; /* Dark gray text color for options */
+background-color: #d9558e; /* White background for options */
+border: 1px solid #d9558e; /* Light pink border around the dropdown */
+}
+
+QComboBox QAbstractItemView::item {
+padding: 5px;
+}
+
+QComboBox QAbstractItemView::item:hover {
+background-color: #ff66b3; /* Darker pink background on hover */
+color: white; /* White text color on hover */
+}
+
+QComboBox::item:selected {
+background-color: #ff66b3; /* Light pink background for selected item */
+color: white; /* White text color for selected item */
+}
+
+QComboBox:editable {
+background-color: #ffffff; /* White background */
+color: #333333; /* Dark gray text color */
+}
+
+QComboBox QAbstractItemView::item:selected {
+background-color: #ff66b3; /* Light pink background for selected item in dropdown */
+color: white; /* White text color for selected item in dropdown */
+}
+
+QComboBox QAbstractItemView::item:focus {
+background-color: #ff66b3; /* Darker pink background when item is focused */
+color: white; /* White text color when focused */
 }
 
 QDoubleSpinBox {
-    background-color: #ffffff;
-    border: 1px solid #ff80bf;
-    padding: 5px;
-    font-size: 14px;
+background-color: #d9558e;
+border: 1px solid #d9558e;
+padding: 5px;
+font-size: 14px;
+color: white; /* Dark text color for the number */
+}
+
+/* Make the text inside the number box dark to make it visible */
+QDoubleSpinBox::up-button,
+QDoubleSpinBox::down-button {
+background-color: transparent;
+border: none;
+width: 15px;
+height: 15px;
+}
+
+QDoubleSpinBox::up-button:hover,
+QDoubleSpinBox::down-button:hover {
+background-color: #ff66b3;
+}
+
+/* Arrow customization */
+QDoubleSpinBox::up-button {
+image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUA
+AAAABCAQAAACNbyblAAAAWElEQVR42mP8/wcAAwAB/8wWbUia5eTfc4PNSk
+OkskI6lzAAxhJ3loRuZaJr/8mJ3fBUnH6wIrb8VVhZZGo1U5f39ngoyltc
+txkWlZ79/kJ5Fr1yW2FYQmcw9rNNo62ctkZZpZTqa+f1sgaVykpnDPyAAAA
+AElFTkSuQmCC);
+width: 15px;
+height: 15px;
+}
+
+QDoubleSpinBox::down-button {
+image: url(data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUA
+AAAABCAQAAACNbyblAAAAWElEQVR42mP8/wcAAwAB/8wWbUia5eTfc4PNSk
+OkskI6lzAAxhJ3loRuZaJr/8mJ3fBUnH6wIrb8VVhZZGo1U5f39ngoyltc
+txkWlZ79/kJ5Fr1yW2FYQmcw9rNNo62ctkZZpZTqa+f1sgaVykpnDPyAAAA
+AElFTkSuQmCC);
+width: 15px;
+height: 15px;
 }
 
 QDoubleSpinBox:hover {
-    border-color: #ff66b3;
+border-color: #ff66b3;
 }
 
 QProgressBar {
-    border: 1px solid #ff80bf;
-    border-radius: 5px;
-    text-align: center;
+border: 1px solid #d9558e;
+border-radius: 5px;
+text-align: center;
 }
 
 QProgressBar::chunk {
-    background-color: #ff66b3;  /* Progress bar color */
-    width: 1px;
+background-color: #ff66b3; /* Progress bar color */
+width: 1px;
 }
 
 QGraphicsView {
-    border: 2px solid #ff80bf;
-    border-radius: 8px;
+border: 2px solid #d9558e;
+border-radius: 8px;
 }
 
 QFileDialog {
-    background-color: #ffffff;
+background-color: #ffffff;
 }
 
 QProgressDialog {
-    background-color: #ffffff;
-    border: 2px solid #ff80bf;
-    border-radius: 10px;
+background-color: #38393b;
+border: 2px solid #d9558e;
+border-radius: 10px;
 }
 
 QProgressDialog::label {
-    color: #333333;
+color: #333333;
 }
 
 QProgressDialog::cancelButton {
-    background-color: #ff80bf;
-    border: 2px solid #ff66b3;
-    color: white;
-    border-radius: 5px;
+background-color: #d9558e;
+border: 2px solid #ff66b3;
+color: white;
+border-radius: 5px;
 }
 
 QProgressDialog::cancelButton:hover {
-    background-color: #ff66b3;
-    border-color: #ff4d94;
+background-color: #ff66b3;
+border-color: #ff4d94;
 }
 """
 
@@ -200,6 +274,7 @@ class MainWindow(QMainWindow):
         self.processed_image = None  # Store processed image
         self.model = load_model_resnet("resnet50_trained_iteration_4_100_epochs.pth")
         self.classification = 'null'
+        self.classified = 0
 
         # Find UI elements
         self.buttonFile = self.findChild(QPushButton, "pushButtonFile")
@@ -314,8 +389,12 @@ class MainWindow(QMainWindow):
     def save_image(self):
         if self.processed_image is not None:
             save_path, _ = QFileDialog.getSaveFileName(self, "Save Image", "", "PNG Files (*.png)")
-            if save_path:
+            if save_path and not self.classified:
                 img = Image.fromarray(self.processed_image)
+                img.save(save_path)
+                print(f"Image Saved @ {save_path}")
+            elif save_path and self.classified:
+                img = self.processed_image
                 img.save(save_path)
                 print(f"Image Saved @ {save_path}")
         else:
@@ -339,7 +418,42 @@ class MainWindow(QMainWindow):
                 _, predicted_class = torch.max(outputs, 1)
 
             class_label = REVERSE_CLASS_MAPPING[predicted_class.item()]
-            QMessageBox.information(self, "Classification Result", f"{class_label}")
+            msg = QMessageBox(self)
+            msg.setIcon(QMessageBox.Information)
+            msg.setWindowTitle("Classification Result")
+            msg.setText("Classification Successful")
+            msg.setInformativeText(f"Prediction: {class_label}")
+            msg.setStandardButtons(QMessageBox.Ok)
+
+            # Style the message box with custom colors
+            msg.setStyleSheet("""
+            QMessageBox {
+            background-color: #38393b;
+            color: #ffffff;
+            font-size: 16px;
+            border-radius: 8px;
+            border: 2px solid #d9558e;
+            }
+            QMessageBox QPushButton {
+            background-color: #d9558e;
+            color: white;
+            border: 1px solid #ff66b3;
+            border-radius: 5px;
+            padding: 10px 20px;
+            font-size: 14px;
+            }
+            QMessageBox QPushButton:hover {
+            background-color: #ff66b3;
+            border-color: #ff4d94;
+            }
+            QMessageBox QPushButton:pressed {
+            background-color: #ff4d94;
+            border-color: #ff3385;
+            }
+            """)
+
+            # Display the message box
+            msg.exec_()
             self.bounding_box()
 
         except Exception as e:
@@ -406,6 +520,7 @@ class MainWindow(QMainWindow):
                     return image_with_boxes
 
     def bounding_box(self):
+        self.classified = 1
         num_classes = len(CLASS_MAPPING)
         model_path = "faster_rcnn_det_test_101.pth"
 
@@ -447,6 +562,7 @@ class MainWindow(QMainWindow):
 
         save_path = "mamogram.png"  # Specify your save path
         image_with_boxes.save(save_path, 'PNG')
+        self.processed_image = Image.open(save_path)
 
         # Display the saved image in the front-end
         self.display_png(save_path)
@@ -510,7 +626,7 @@ def scale_bbox(bbox, original_width, original_height, target_width=512, target_h
 
 if __name__ == "__main__":
     app = QApplication(sys.argv)
-    #app.setStyleSheet(stylesheet)
+    app.setStyleSheet(stylesheet)
     widget = MainWindow()
     widget.show()
     sys.exit(app.exec())
